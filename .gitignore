@@ -1,0 +1,56 @@
+# Virtual environment
+venv/
+*.env
+*.log
+
+# Python files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Model and data files
+*.h5
+*.pkl
+*.ckpt
+*.hdf5
+*.tfrecord
+
+# Streamlit and Flask cache
+.streamlit/
+*.cache
+*.flaskenv
+
+# IDE and OS generated files
+*.vscode/
+*.idea/
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+*.tmp
+
+# Dependency files
+requirements.txt
+*.lock
+Pipfile
+Pipfile.lock
+
+# Test artifacts and temp files
+*.out
+*.test
+*.coverage
+*.xml
+.coverage
+.nyc_output
+
+# Ignore large dataset or temporary files
+datasets/
+logs/
+tmp/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
