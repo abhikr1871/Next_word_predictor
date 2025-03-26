@@ -83,16 +83,16 @@ test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
 
-if test_acc >= 0.80:
+if test_accuracy= 0.80:
     # Ensure models directory exists
     os.makedirs("models", exist_ok=True)
 
     # Save the model
-    model.save("models/lstm_model.keras")
+    model.save("lstm_model.keras")
 
     # Save the tokenizer
     try:
-        with open("models/tokenizer.pkl", "wb") as f:
+        with open("tokenizer.pkl", "wb") as f:
             pickle.dump(tokenizer, f)
         print("Model and tokenizer saved successfully.")
     except Exception as e:
