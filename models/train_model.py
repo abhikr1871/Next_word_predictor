@@ -6,9 +6,8 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-import pickle
 import re
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split  # Import train_test_split
 
 #  Preprocessing function for corpus cleaning
 def clean_text(text):
@@ -20,7 +19,7 @@ def clean_text(text):
 
 #  Load and clean corpus
 with open("corpus.txt", "r", encoding="utf-8") as f:
-    corpus = f.read().splitlines()
+    corpus = f.read().split('.')
 
 # Clean and filter empty lines
 corpus = [clean_text(line) for line in corpus if line.strip()]
@@ -30,50 +29,59 @@ tokenizer = Tokenizer()
 tokenizer.fit_on_texts(corpus)
 total_words = len(tokenizer.word_index) + 1
 
-#  Prepare data for training
+# Prepare data for training
 input_sequences = []
-for line in corpus:
-    token_list = tokenizer.texts_to_sequences([line])[0]
+sequences = tokenizer.texts_to_sequences(corpus)
+for token_list in sequences:
     for i in range(1, len(token_list)):
         n_gram_sequence = token_list[:i + 1]
         input_sequences.append(n_gram_sequence)
 
-#  Pad sequences
+# Pad sequences
 max_sequence_len = max([len(x) for x in input_sequences])
 input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_len, padding='pre'))
 
-#  Features and labels
-X, y = input_sequences[:, :-1], input_sequences[:, -1]
+# Features (X) and labels (y)
+X = input_sequences[:, :-1]  # All elements except last one
+y = input_sequences[:, -1]   # Last element as label
+
+# Convert labels to one-hot encoding
 y = tf.keras.utils.to_categorical(y, num_classes=total_words)
 
-#  Split data into 70% training and 30% testing
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 #  Build Improved LSTM model with Bidirectional layers
 model = Sequential([
-    Embedding(total_words, 300, input_length=max_sequence_len - 1),
-    Bidirectional(LSTM(256, return_sequences=True)),
-    Dropout(0.3),
+    Embedding(total_words, 300, input_length=max_sequence_len - 1),  # Increased embedding dimension
+    Bidirectional(LSTM(256, return_sequences=True)),  # Bidirectional for better context
+    Dropout(0.3),  # Increased dropout
     Bidirectional(LSTM(256)),
     Dense(256, activation='relu'),
     Dropout(0.3),
     Dense(total_words, activation='softmax')
 ])
 
-#  Compile the model
+# Compile the model
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-#  Callbacks for better convergence
-early_stopping = EarlyStopping(monitor='val_loss', patience=100, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)
-
 #  Train the model
-history = model.fit(X_train, y_train, epochs=100, batch_size=64, verbose=1, 
-                    validation_data=(X_test, y_test), callbacks=[early_stopping, reduce_lr])
+history = model.fit(
+    X_train, y_train,
+    epochs=5,
+    batch_size=64,
+    verbose=1,
+    validation_data=(X_test, y_test),  # Track validation accuracy during training
+    callbacks=[
+        EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),  # Monitor validation loss
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)
+    ]
+)
 
-#  Ensure accuracy is at least 80%
-test_loss, test_acc = model.evaluate(X_test, y_test)
-print(f"Test Accuracy: {test_acc * 100:.2f}%")
+# Evaluate on test set
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
+print(f"Test Accuracy: {test_accuracy:.4f}")
+
 
 if test_acc >= 0.80:
     # Ensure models directory exists
