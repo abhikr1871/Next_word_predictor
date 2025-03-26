@@ -8,6 +8,7 @@ from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Bidirection
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import pickle
 import re
+from sklearn.model_selection import train_test_split
 
 #  Preprocessing function for corpus cleaning
 def clean_text(text):
@@ -45,36 +46,48 @@ input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_le
 X, y = input_sequences[:, :-1], input_sequences[:, -1]
 y = tf.keras.utils.to_categorical(y, num_classes=total_words)
 
+#  Split data into 70% training and 30% testing
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
 #  Build Improved LSTM model with Bidirectional layers
-model = Sequential()
-model.add(Embedding(total_words, 300, input_length=max_sequence_len - 1))  # Increased embedding dimension
-model.add(Bidirectional(LSTM(256, return_sequences=True)))  # Bidirectional for better context
-model.add(Dropout(0.3))  # Increased dropout
-model.add(Bidirectional(LSTM(256)))
-model.add(Dense(256, activation='relu'))
-model.add(Dropout(0.3))
-model.add(Dense(total_words, activation='softmax'))
+model = Sequential([
+    Embedding(total_words, 300, input_length=max_sequence_len - 1),
+    Bidirectional(LSTM(256, return_sequences=True)),
+    Dropout(0.3),
+    Bidirectional(LSTM(256)),
+    Dense(256, activation='relu'),
+    Dropout(0.3),
+    Dense(total_words, activation='softmax')
+])
 
 #  Compile the model
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 #  Callbacks for better convergence
-early_stopping = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr=0.0001)
+early_stopping = EarlyStopping(monitor='val_loss', patience=100, restore_best_weights=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)
 
 #  Train the model
-model.fit(X, y, epochs=100, batch_size=64, verbose=1, callbacks=[early_stopping, reduce_lr])
+history = model.fit(X_train, y_train, epochs=100, batch_size=64, verbose=1, 
+                    validation_data=(X_test, y_test), callbacks=[early_stopping, reduce_lr])
 
-#  Ensure models directory exists
-os.makedirs("models", exist_ok=True)
+#  Ensure accuracy is at least 80%
+test_loss, test_acc = model.evaluate(X_test, y_test)
+print(f"Test Accuracy: {test_acc * 100:.2f}%")
 
-#  Save the model and tokenizer
-model.save("models/lstm_model.h5")
+if test_acc >= 0.80:
+    # Ensure models directory exists
+    os.makedirs("models", exist_ok=True)
 
-#  Save the tokenizer safely
-try:
-    with open("models/tokenizer.pkl", "wb") as f:
-        pickle.dump(tokenizer, f)
-    print(" Model and tokenizer saved successfully.")
-except Exception as e:
-    print(f" Error saving tokenizer: {e}")
+    # Save the model
+    model.save("models/lstm_model.keras")
+
+    # Save the tokenizer
+    try:
+        with open("models/tokenizer.pkl", "wb") as f:
+            pickle.dump(tokenizer, f)
+        print("Model and tokenizer saved successfully.")
+    except Exception as e:
+        print(f"Error saving tokenizer: {e}")
+else:
+    print("Model accuracy is below 80%, retraining is recommended.")
